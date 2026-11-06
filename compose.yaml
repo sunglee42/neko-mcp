@@ -1,0 +1,32 @@
+name: neko-mcp-release
+services:
+  neko:
+    # Chromium profile locks include the hostname; keep it stable on recreation.
+    hostname: neko-browser
+    build: ./docker/neko
+    restart: unless-stopped
+    shm_size: 2gb
+    ports:
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:8931:8931"
+      - "127.0.0.1:52000-52100:52000-52100/udp"
+    environment:
+      NEKO_DESKTOP_SCREEN: 1920x1080@30
+      NEKO_MEMBER_MULTIUSER_USER_PASSWORD: ${NEKO_USER_PASSWORD:?Run scripts/init.ps1 first}
+      NEKO_MEMBER_MULTIUSER_ADMIN_PASSWORD: ${NEKO_ADMIN_PASSWORD:?Run scripts/init.ps1 first}
+      NEKO_WEBRTC_EPR: 52000-52100
+      NEKO_WEBRTC_NAT1TO1: ${NEKO_IP:-127.0.0.1}
+    volumes:
+      - chromium-profile:/home/neko/.config/chromium
+  playwright-mcp:
+    image: mcr.microsoft.com/playwright/mcp@sha256:690763cbb437ee7233f538a953bb5390bf03791eb5c965b471e59d17a6132fcb
+    restart: unless-stopped
+    init: true
+    # Share loopback with Neko: Chromium's debugging port stays private.
+    network_mode: service:neko
+    depends_on:
+      - neko
+    entrypoint: ["node", "/app/cli.js"]
+    command: ["--cdp-endpoint", "http://127.0.0.1:9222", "--port", "8931", "--host", "0.0.0.0", "--shared-browser-context"]
+volumes:
+  chromium-profile:
