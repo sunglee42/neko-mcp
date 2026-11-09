@@ -7,9 +7,13 @@ services:
     restart: unless-stopped
     shm_size: 2gb
     ports:
-      - "127.0.0.1:8080:8080"
-      - "127.0.0.1:8931:8931"
-      - "127.0.0.1:52000-52100:52000-52100/udp"
+      # NEKO_IP：127.0.0.1 僅限本機；主機區網 IPv4 則供內網存取。
+      # Neko 網頁介面與 WebSocket 信令。
+      - "${NEKO_IP:-127.0.0.1}:8080:8080/tcp"
+      # MCP Bearer 驗證入口；不發布內部 MCP 8932 或 CDP 9222。
+      - "${NEKO_IP:-127.0.0.1}:8931:8931/tcp"
+      # WebRTC 音訊、影像與操作資料；映射範圍須與 EPR 一致。
+      - "${NEKO_IP:-127.0.0.1}:52000-52100:52000-52100/udp"
     environment:
       NEKO_DESKTOP_SCREEN: 1920x1080@30
       NEKO_MEMBER_MULTIUSER_USER_PASSWORD: ${NEKO_USER_PASSWORD:?Run scripts/init.ps1 first}
@@ -26,7 +30,12 @@ services:
     network_mode: service:neko
     depends_on:
       - neko
-    entrypoint: ["node", "/app/cli.js"]
-    command: ["--cdp-endpoint", "http://127.0.0.1:9222", "--port", "8931", "--host", "0.0.0.0", "--shared-browser-context"]
+    # Authenticated entry :8931 forwards to a private loopback backend :8932.
+    environment:
+      MCP_PASSWORD: ${MCP_PASSWORD:?Run scripts/init.ps1 to generate MCP_PASSWORD}
+    volumes:
+      - ./docker/mcp/auth-proxy.mjs:/app/auth-proxy.mjs:ro
+    entrypoint: ["node", "/app/auth-proxy.mjs"]
+    command: []
 volumes:
   chromium-profile:

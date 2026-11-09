@@ -1,7 +1,10 @@
 {
   "mcpServers": {
     "neko-playwright": {
-      "url": "http://localhost:8931/mcp"
+      "url": "http://localhost:8931/mcp",
+      "headers": {
+        "Authorization": "Bearer REPLACE_WITH_MCP_PASSWORD_FROM_ENV"
+      }
     }
   }
 }
