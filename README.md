@@ -2,16 +2,16 @@
 
 獨立部署版本：Neko 提供 Chromium 桌面，Playwright MCP 透過 CDP 控制同一個瀏覽器。此資料夾可單獨複製使用。
 
-**部署版本：Chromium 155（完整版本 `155.0.8059.79`）、Playwright MCP `0.0.83`。**
+**部署版本：Chromium 155（完整版本 `155.0.8059.79`）、Playwright MCP `0.0.85`。**
 
 ## 映像版本與相容性
 
-部署以完整 SHA-256 digest 固定映像內容，不隨 `latest` 更新。
+Neko 與 Playwright MCP 均以 SHA-256 digest 固定映像內容；MCP 對應官方 `v0.0.85` 標籤。
 
 | 元件 | 版本 | 指定位置 |
 |---|---|---|
 | Neko Chromium 映像 | 內含 Chromium `155.0.8059.79`；Neko 本身以映像 digest 識別 | `docker/neko/Dockerfile` 的 `FROM` |
-| Playwright MCP | `0.0.83` | `compose.yaml` 的 `image` |
+| Playwright MCP | `0.0.85` | `compose.yaml` 的 `image` |
 
 Neko Chromium 基底映像：
 
@@ -22,7 +22,7 @@ ghcr.io/m1k1o/neko/chromium@sha256:270face8b8111e639744fb7bcdbbf0deed227900bb89d
 Playwright MCP 映像：
 
 ```text
-mcr.microsoft.com/playwright/mcp@sha256:690763cbb437ee7233f538a953bb5390bf03791eb5c965b471e59d17a6132fcb
+mcr.microsoft.com/playwright/mcp:v0.0.85@sha256:cc70a6922ff856f3aba0fe97d0d94220dc9a7f367f6d332facc6d81d9a91e60e
 ```
 
 升級任一元件時，應更新對應 digest、重新建置，並重新驗證 MCP 連線、分頁附加、導航、輸入、點擊與頁面快照的相容性。
@@ -77,7 +77,7 @@ Viewer     → Neko :8080       → WebRTC     → 同一個 Chromium
 
 ## 資料與維護
 
-Chromium profile 儲存在 named volume，包含 Cookie、登入與網站儲存資料。固定 hostname 避免容器重建後 profile 鎖定資訊指向舊 hostname。Neko 與 MCP 映像均以已驗證的 digest 固定。
+Chromium profile 儲存在 named volume，包含 Cookie、登入與網站儲存資料。固定 hostname 避免容器重建後 profile 鎖定資訊指向舊 hostname。Neko 映像以 digest 固定；MCP 映像以官方 `v0.0.85` 標籤及對應 digest 固定。
 
 ```powershell
 # 檢查狀態與日誌
@@ -133,3 +133,59 @@ MCP 使用獨立 Bearer 密碼，與 Neko 採相同的隨機產生及 `.env` 儲
 ## Credit
 
 由 Codex 編寫，經人工審查。
+
+## Playwright MCP 設定檔
+
+專案根目錄的 `config.json` 是 Playwright MCP 伺服器設定，與供 MCP client 連線使用的 `mcp-config.example.json` 不同。Compose 將它唯讀掛載到 `/app/config.json`，認證代理啟動 MCP 時會傳入 `--config /app/config.json`。請保留此檔案；不需自訂時可填入 `{}`。
+
+目前預設關閉僅定位可見元素的功能。若要開啟，修改為：
+
+```json
+{
+  "browser": {
+    "contextOptions": {
+      "locateOnlyVisible": true
+    }
+  }
+}
+```
+
+v0.0.85 的這個選項會讓定位器只匹配可見元素，有助於排除隱藏的重複控制項；預設為 `false`。它不是只允許操作目前螢幕範圍的限制，也無法修正空 selector、錯誤的 selector 語法或已失效的 ref。定位器若已有自己的可見性篩選，會保留該篩選。
+
+連線端點、監聽位址、連接埠與共用 context 已由代理的 CLI 參數指定；請勿在設定檔中改成其他值。此專案透過 CDP 連接 Neko 現有的 Chromium，不是由 MCP 啟動瀏覽器，因此 launchOptions 等啟動選項不適用於這個既有瀏覽器。
+
+更新版本並套用設定：
+
+```powershell
+docker compose pull playwright-mcp
+docker compose up -d --force-recreate playwright-mcp
+docker compose logs --tail 80 playwright-mcp
+```
+
+之後只修改設定檔時，可直接執行上述 `up -d --force-recreate` 指令並重新連線 MCP client。請在部署環境驗證登入、定位、輸入與點擊。
+
+官方版本說明：https://github.com/microsoft/playwright-mcp/releases/tag/v0.0.85
+
+## 容器與瀏覽器時區
+
+在 `.env` 設定 `TZ=Asia/Taipei`，Compose 會把同一個 IANA 時區傳給 Neko 與 MCP 容器；未設定時也預設使用台北時區。這是明確設定，不會自動追蹤 Windows 主機時區變更。Neko 建置時會確認台北時區資料存在，必要時安裝 tzdata。容器共用 Docker 執行環境的系統時鐘，不需額外同步時間。
+
+修改時區後，重建 Neko 與共用其網路的 MCP 容器：
+
+```powershell
+docker compose up -d --build --force-recreate neko playwright-mcp
+docker compose exec neko sh -c 'echo "$TZ"; date "+%Y-%m-%d %H:%M:%S %Z %z"; test -f /usr/share/zoneinfo/Asia/Taipei'
+docker compose exec playwright-mcp node -e "console.log(process.env.TZ, new Date().toString())"
+```
+
+在 Neko 的 Chromium 開發者工具或 MCP JavaScript 執行工具內檢查以下運算式，確認網頁實際取得的時區：
+
+```javascript
+({
+  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  localTime: new Date().toString(),
+  offsetMinutes: new Date().getTimezoneOffset()
+})
+```
+
+台北預期為 `Asia/Taipei`、`GMT+0800` 與 `-480`。請避免另行在自動化 context 設定不同的 timezoneId，以免覆寫瀏覽器時區。

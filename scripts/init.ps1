@@ -15,7 +15,7 @@ if (Test-Path -LiteralPath $envPath) {
     }
     $content = $content.TrimEnd() + "`nMCP_PASSWORD=$(New-Password)`n"
 } else {
-    $content = "NEKO_IP=127.0.0.1`nNEKO_USER_PASSWORD=$(New-Password)`nNEKO_ADMIN_PASSWORD=$(New-Password)`nMCP_PASSWORD=$(New-Password)`n"
+    $content = "NEKO_IP=127.0.0.1`nTZ=Asia/Taipei`nNEKO_USER_PASSWORD=$(New-Password)`nNEKO_ADMIN_PASSWORD=$(New-Password)`nMCP_PASSWORD=$(New-Password)`n"
 }
 [System.IO.File]::WriteAllText($envPath, $content, (New-Object System.Text.UTF8Encoding($false)))
 Write-Host 'Saved random credentials to .env. Existing Neko credentials were preserved.'

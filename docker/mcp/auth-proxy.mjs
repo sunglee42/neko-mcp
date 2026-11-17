@@ -38,7 +38,7 @@ export function createAuthProxy(password, upstreamPort = 8932) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   // Validate credentials before starting the private backend.
   const server = createAuthProxy(process.env.MCP_PASSWORD);
-  const child = spawn(process.execPath, ['/app/cli.js', '--cdp-endpoint', 'http://127.0.0.1:9222', '--port', '8932', '--host', '127.0.0.1', '--shared-browser-context'], { stdio: 'inherit' });
+  const child = spawn(process.execPath, ['/app/cli.js', '--config', '/app/config.json', '--cdp-endpoint', 'http://127.0.0.1:9222', '--port', '8932', '--host', '127.0.0.1', '--shared-browser-context'], { stdio: 'inherit' });
   child.on('error', () => process.exit(1));
   child.on('exit', code => { server.close(); process.exit(code || 1); });
   server.on('error', () => { child.kill('SIGTERM'); process.exit(1); });

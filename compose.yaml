@@ -15,6 +15,7 @@ services:
       # WebRTC 音訊、影像與操作資料；映射範圍須與 EPR 一致。
       - "${NEKO_IP:-127.0.0.1}:52000-52100:52000-52100/udp"
     environment:
+      TZ: ${TZ:-Asia/Taipei}
       NEKO_DESKTOP_SCREEN: 1920x1080@30
       NEKO_MEMBER_MULTIUSER_USER_PASSWORD: ${NEKO_USER_PASSWORD:?Run scripts/init.ps1 first}
       NEKO_MEMBER_MULTIUSER_ADMIN_PASSWORD: ${NEKO_ADMIN_PASSWORD:?Run scripts/init.ps1 first}
@@ -23,7 +24,7 @@ services:
     volumes:
       - chromium-profile:/home/neko/.config/chromium
   playwright-mcp:
-    image: mcr.microsoft.com/playwright/mcp@sha256:690763cbb437ee7233f538a953bb5390bf03791eb5c965b471e59d17a6132fcb
+    image: mcr.microsoft.com/playwright/mcp:v0.0.85@sha256:cc70a6922ff856f3aba0fe97d0d94220dc9a7f367f6d332facc6d81d9a91e60e
     restart: unless-stopped
     init: true
     # Share loopback with Neko: Chromium's debugging port stays private.
@@ -32,9 +33,11 @@ services:
       - neko
     # Authenticated entry :8931 forwards to a private loopback backend :8932.
     environment:
+      TZ: ${TZ:-Asia/Taipei}
       MCP_PASSWORD: ${MCP_PASSWORD:?Run scripts/init.ps1 to generate MCP_PASSWORD}
     volumes:
       - ./docker/mcp/auth-proxy.mjs:/app/auth-proxy.mjs:ro
+      - ./config.json:/app/config.json:ro
     entrypoint: ["node", "/app/auth-proxy.mjs"]
     command: []
 volumes:
