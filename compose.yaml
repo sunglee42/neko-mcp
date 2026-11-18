@@ -16,7 +16,7 @@ services:
       - "${NEKO_IP:-127.0.0.1}:52000-52100:52000-52100/udp"
     environment:
       TZ: ${TZ:-Asia/Taipei}
-      NEKO_DESKTOP_SCREEN: 1920x1080@30
+      NEKO_DESKTOP_SCREEN: 1400x1050@60
       NEKO_MEMBER_MULTIUSER_USER_PASSWORD: ${NEKO_USER_PASSWORD:?Run scripts/init.ps1 first}
       NEKO_MEMBER_MULTIUSER_ADMIN_PASSWORD: ${NEKO_ADMIN_PASSWORD:?Run scripts/init.ps1 first}
       NEKO_WEBRTC_EPR: 52000-52100
